@@ -1,0 +1,78 @@
+* dc-types
+Parameterized type definitions for list-of, vector-of, and hash-table-of.
+
+** Overview
+In most cases, I don't worry too much about types, and SBCL helps me behind the
+scenes with basic types. Howeever, in some cases, when working with lists,
+vectors, and hash tables, I like to provide parametric types. This tiny bit of
+code does just that.
+
+I find the list-of, vector-of, and hash-table-of types especially useful when
+defining certain kinds of classes, like t-net (a basic neural network). Here's
+an example where I've removed most of the slots, for readabilty.
+
+#+begin_src lisp
+  (defclass t-net ()
+    ((id :reader id :initarg :id :type keyword
+       :initform (error ":ID required when creating an instance of T-NET"))
+      (neurons 
+        :accessor neurons 
+        :initarg :neurons
+        :type (hash-table-of integer t-neuron)
+        :initform nil)
+      (training-set 
+        :accessor training-set
+        :initarg :training-set
+        :type (or null (vector-of float)))
+      (test-set 
+        :accessor test-set
+        :initarg :test-set 
+        :type (list-of float))
+      (label->index 
+        :accessor label->index
+        :initarg :label->index
+        :type (hash-table-of string integer))
+      (label->expected-outputs 
+        :accessor label->expected-outputs
+        :initarg :label->expected-outputs
+        :type (hash-table-of string (list-of float)))
+      (index->label :accessor index->label 
+        :initarg :index->label 
+        :type (or null (vector-of string))))
+    (:documentation
+      "Represents a collection of interconnected neurons."))
+
+  (defmethod initialize-instance :after ((net t-net) &key)
+    (with-slots (neurons) net
+      (check-type neurons (list-of t-neuron))
+    (with-slots (training-set) net
+      (check-type training-set (vector-of float)))
+    (with-slots (test-set training-error) net
+      (check-type test-set (list-of float)))
+    (with-slots (label->index) net
+      (check-type label->index (hash-table-of string integer)))
+    (with-slots (label->expected-outputs) net
+      (check-type label->expected-outputs
+        (hash-table-of string (list-of float))))
+    (with-slots (index->label) net
+      (check-type index->label (vector-of string))))
+#+end_src
+
+Note the definition of =label->expected-outputs=. It's interesting because the
+=hash-table-of= type includes a key-type parameter of =string= and a value-type
+parameter of =(list-of float)=. The =initialize-instance= method here ensures
+that you can't provide invalid values when making an instance of the class.
+
+** Functions
+*** list-of
+=(list-of element-type)=
+
+Allows you to specify a type that is like =list=, but where every element of the list must be of type =element-type=.
+*** hash-table-of
+=(hash-table-of key-type value-type)=
+
+Allows you to specify a type that is like hash-table, but where every key/value pair must be of the given types.
+*** vector-of
+=(vector-of element-type=
+
+Allows you to specify a type that is like vector, but where every element of the vector must be of type =element-type=.
